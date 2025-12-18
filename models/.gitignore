@@ -4,7 +4,9 @@
 # Don't ignore these specific files
 !.gitignore
 !README.md
+!Readme.md
 !download_models.py
+!download_insightface.py
 
 # Don't ignore subdirectories, but ignore their contents
 !*/

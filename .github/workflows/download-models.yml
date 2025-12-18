@@ -1,0 +1,126 @@
+name: Download SOTA Models
+
+on:
+  workflow_dispatch:
+    inputs:
+      sam_model:
+        description: 'SAM model variant to download'
+        required: true
+        default: 'vit_b'
+        type: choice
+        options:
+          - vit_h
+          - vit_l
+          - vit_b
+      insightface_model:
+        description: 'InsightFace model to download'
+        required: true
+        default: 'buffalo_s'
+        type: choice
+        options:
+          - buffalo_l
+          - buffalo_s
+      upload_artifact:
+        description: 'Upload models as artifacts'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  download-models:
+    name: Download and Cache SOTA Models
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests tqdm torch torchvision
+
+      - name: Cache models
+        id: cache-models
+        uses: actions/cache@v3
+        with:
+          path: |
+            models/
+            ~/.cache/torch
+            ~/.cache/huggingface
+          key: models-${{ inputs.sam_model }}-${{ inputs.insightface_model }}-v2
+          restore-keys: |
+            models-${{ inputs.sam_model }}-
+            models-
+
+      - name: Download SAM model
+        if: steps.cache-models.outputs.cache-hit != 'true'
+        run: |
+          python models/download_models.py \
+            --sam_model ${{ inputs.sam_model }} \
+            --skip_yolo \
+            --skip_whisper \
+            --skip_insightface \
+            --skip_llama_info \
+            --models_dir models/
+
+      - name: Download InsightFace model
+        if: steps.cache-models.outputs.cache-hit != 'true'
+        run: |
+          python models/download_insightface.py \
+            --model ${{ inputs.insightface_model }} \
+            --output_dir models/
+
+      - name: Download YOLOv5 (via torch.hub)
+        if: steps.cache-models.outputs.cache-hit != 'true'
+        run: |
+          python -c "import torch; model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True); print('YOLOv5 downloaded successfully')"
+
+      - name: List downloaded models
+        run: |
+          echo "## Downloaded Models" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Models Directory:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh models/ || echo "No models directory"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Total Size:" >> $GITHUB_STEP_SUMMARY
+          du -sh models/ || echo "No models directory"
+
+      - name: Upload models as artifacts
+        if: ${{ inputs.upload_artifact }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: sota-models-${{ inputs.sam_model }}-${{ inputs.insightface_model }}
+          path: |
+            models/*.pth
+            models/insightface_model/
+          retention-days: 7
+
+      - name: Create model manifest
+        run: |
+          cat > models/MANIFEST.txt << EOF
+          SOTA Models Downloaded
+          =====================
+          Date: $(date)
+          SAM Model: ${{ inputs.sam_model }}
+          InsightFace Model: ${{ inputs.insightface_model }}
+
+          Files:
+          $(ls -lh models/)
+
+          Total Size: $(du -sh models/ | cut -f1)
+          EOF
+          cat models/MANIFEST.txt
+
+      - name: Success notification
+        run: |
+          echo "✅ All models downloaded successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Models are cached and ready for use in CI/CD pipelines." >> $GITHUB_STEP_SUMMARY
