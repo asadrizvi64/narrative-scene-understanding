@@ -281,11 +281,11 @@ class VisualProcessor:
         else:
             # Use YOLOv5 as fallback
             objects = self._detect_with_yolo(frame, frame_idx)
-        
+
         for obj in objects:
-                if obj['type'] in ['car', 'vehicle', 'truck']:
-                    obj['color'] = self._detect_object_color(frame, obj['box'])
-            
+            if obj['type'] in ['car', 'vehicle', 'truck']:
+                obj['color'] = self._detect_object_color(frame, obj['box'])
+
         return objects
 
     def _detect_object_color(self, frame: np.ndarray, box: List[int]) -> str:

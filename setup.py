@@ -32,7 +32,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "numpy>=1.20.0",
-        # "opencv-python>=4.5.0,
+        # "opencv-python>=4.5.0",
         "opencv-python-headless>=4.5.0",
         "torch>=1.9.0",
         "networkx>=2.6.0",
